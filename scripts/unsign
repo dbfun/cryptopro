@@ -1,0 +1,12 @@
+#!/bin/bash
+
+tmp=`mktemp`
+cat - > "$tmp"
+cryptcp -verify -nochain "$tmp" "$tmp.origin" > /dev/null 2>&1
+signResult=$?
+if [ "$signResult" != "0" ]; then
+  rm -f "$tmp" "$tmp.origin"
+  exit $signResult
+fi
+cat "$tmp.origin"
+rm -f "$tmp" "$tmp.origin"

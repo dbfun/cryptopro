@@ -3,6 +3,7 @@
 Возможности:
 
 * PHP7 с установленным расширением `libphpcades` (`CPStore`, `CPSigner`, `CPSignedData`)
+* использование входящих в КриптоПро инструментов: `certmgr`, `cpverify`, `cryptcp`, `csptest`, `csptestf`, `der2xer`, `inittst`, `wipefile`, `cpconfig`
 * удобная установка сертификатов:
   * корневых
   * пользователя
@@ -14,7 +15,7 @@
 ├── dist          - пакеты КриптоПро (необходимо скачать с официального сайта)
 ├── Dockerfile    - файл сборки образа
 ├── README.md     - этот файл
-└── scripts       - скрипты
+└── scripts       - вспомогательные скрипты
 ````
 
 # Создание образа из исходного кода
@@ -39,11 +40,28 @@ docker build --tag required/cryptopro .
 
 ## Запуск
 
-Запустим контейнер под именем `cryptopro`:
+Запустим контейнер под именем `cryptopro`, к которому будем обращаться в примерах:
 
 ```
 docker run -it --rm -p 8095:80 --name cryptopro required/cryptopro
 ```
+
+## Лицензия
+
+Установка серийного номера:
+
+```
+docker exec -i cryptopro cpconfig -license -set <серийный_номер>
+```
+
+Просмотр:
+
+```
+docker exec -i cryptopro cpconfig -license -view
+```
+
+![license](https://raw.githubusercontent.com/dbfun/cryptopro/master/assets/license.gif)
+
 
 ## Установка корневых сертификатов
 
@@ -67,6 +85,8 @@ curl -sS http://cpca.cryptopro.ru/cacer.p7b | docker exec -i cryptopro /scripts/
 curl -sS http://testca2012.cryptopro.ru/cert/rootca.cer | docker exec -i cryptopro /scripts/root
 curl -sS http://testca2012.cryptopro.ru/cert/subca.cer | docker exec -i cryptopro /scripts/root
 ```
+
+![cacer](https://raw.githubusercontent.com/dbfun/cryptopro/master/assets/cacer.gif)
 
 Примечание: по какой-то причине иногда "заедает", но при повторном запуске - срабатывает.
 
@@ -107,6 +127,90 @@ cat certificates/bundle-private-key-only.zip | docker exec -i cryptopro /scripts
 # сертификат + закрытый ключ, название контейнера закрытого ключа содержит кириллицу
 cat certificates/bundle-custom-name.zip | docker exec -i cryptopro /scripts/my
 ```
+
+![my-cert](https://raw.githubusercontent.com/dbfun/cryptopro/master/assets/my-cert.gif)
+
+## Просмотр установленных сертификатов
+
+Сертификаты пользователя:
+
+```
+docker exec -i cryptopro certmgr -list
+```
+
+![show-certs](https://raw.githubusercontent.com/dbfun/cryptopro/master/assets/show-certs.gif)
+
+Корневые сертификаты:
+
+```
+docker exec -i cryptopro certmgr -list -store root
+```
+
+## Подписание документа
+
+Для примера установим этот тестовый сертификат:
+
+```
+# сертификат + закрытый ключ с пин-кодом
+cat certificates/bundle-pin.zip | docker exec -i cryptopro /scripts/my 12345678
+```
+
+Его SHA1 Hash равен `dd45247ab9db600dca42cc36c1141262fa60e3fe` (узнать: `certmgr -list`), который будем использовать как указатель нужного сертификата.
+
+Теперь передадим на `stdin` файл, в качестве команды - последовательность действий, и на `stdout` получим подписанный файл:
+
+```
+cat README.md | docker exec -i cryptopro sh -c 'tmp=`mktemp`; cat - > "$tmp"; cryptcp -sign -thumbprint dd45247ab9db600dca42cc36c1141262fa60e3fe -nochain -pin 12345678 "$tmp" "$tmp.sig" > /dev/null 2>&1; cat "$tmp.sig"; rm -f "$tmp" "$tmp.sig"'
+```
+
+Получилось довольно неудобно. Скрипт `scripts/sign` делает то же самое, теперь команда подписания будет выглядеть так:
+
+```
+cat README.md | docker exec -i cryptopro /scripts/sign dd45247ab9db600dca42cc36c1141262fa60e3fe 12345678
+```
+
+![sign](https://raw.githubusercontent.com/dbfun/cryptopro/master/assets/sign.gif)
+
+Об ошибке можно узнать через стандартный `$?`.
+
+## Проверка подписи
+
+Подпишем файл из примера выше и сохраним его на диск:
+
+```
+cat README.md | docker exec -i cryptopro /scripts/sign dd45247ab9db600dca42cc36c1141262fa60e3fe 12345678 > certificates/README.md.sig
+```
+
+Тогда проверка подписанного файла будет выглядеть так:
+
+```
+cat certificates/README.md.sig | docker exec -i cryptopro sh -c 'tmp=`mktemp`; cat - > "$tmp"; cryptcp -verify -norev -f "$tmp" "$tmp"; rm -f "$tmp"'
+```
+
+То же самое, но с использованием скрипта:
+
+```
+cat certificates/README.md.sig | docker exec -i cryptopro scripts/verify
+```
+
+![verify](https://raw.githubusercontent.com/dbfun/cryptopro/master/assets/verify.gif)
+
+## Получение исходного файла из sig-файла
+
+Возьмем файл из примера выше:
+
+```
+cat certificates/README.md.sig | docker exec -i cryptopro sh -c 'tmp=`mktemp`; cat - > "$tmp"; cryptcp -verify -nochain "$tmp" "$tmp.origin" > /dev/null 2>&1; cat "$tmp.origin"; rm -f "$tmp" "$tmp.origin"'
+```
+
+То же самое, но с использованием скрипта:
+
+```
+cat certificates/README.md.sig | docker exec -i cryptopro scripts/unsign
+```
+
+![unsign](https://raw.githubusercontent.com/dbfun/cryptopro/master/assets/unsign.gif)
+
 
 # Ссылки
 
