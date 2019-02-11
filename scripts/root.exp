@@ -1,0 +1,17 @@
+#!/usr/bin/expect
+
+set file [lindex $argv 0]
+
+spawn certmgr -inst -all -store uroot -file $file
+
+while { 1 } {
+
+  expect {
+    "(o)OK, (c)Cancel" {
+      send -- "o\r"
+      sleep 1
+    }
+    eof { exit 0 }
+  }
+
+}
