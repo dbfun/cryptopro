@@ -4,6 +4,9 @@ set file [lindex $argv 0]
 
 spawn certmgr -inst -all -store uroot -file $file
 
+# Иногда "заедает" на '(o)OK, (c)Cancel', пауза должна решить проблему
+sleep 1
+
 while { 1 } {
 
   expect {
