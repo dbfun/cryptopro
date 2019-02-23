@@ -2,7 +2,8 @@
 FROM debian:stretch-slim as cryptopro-generic
 
 # Устанавливаем timezone
-ENV TZ="Europe/Moscow"
+ENV TZ="Europe/Moscow" \
+    docker="1"
 
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && \
     echo $TZ > /etc/timezone
@@ -61,12 +62,25 @@ RUN apt-get update && \
     php -r "var_dump(class_exists('CPStore'));" | grep -q 'bool(true)' && \
     # прибираемся
     cd / && \
+    apt-get purge -y php7.0-dev cprocsp-pki-phpcades lsb-cprocsp-devel g++ && \
+    apt-get autoremove -y && \
     rm -rf /opt/cprocsp/src/phpcades && \
     rm -rf /tmp/src && \
-    rm -rf /var/lib/apt/lists/ && \
-    apt-get purge -y php7.0-dev cprocsp-pki-phpcades lsb-cprocsp-devel g++ && \
-    apt-get autoremove -y
+    rm -rf /var/lib/apt/lists/
 
 ADD scripts /scripts
 
-CMD ["nohup", "php", "-S", "0.0.0.0:80", "-t", "/scripts/www"]
+# composer
+# RUN apt-get update && \
+#     apt-get install -y --no-install-recommends curl ca-certificates && \
+#     # composer
+#     curl "https://getcomposer.org/installer" > composer-setup.php && \
+#     php composer-setup.php && \
+#     rm -f composer-setup.php && \
+#     chmod +x composer.phar && \
+#     mv composer.phar /bin/composer && \
+#     # прибираемся
+#     cd / && \
+#     apt-get purge -y curl ca-certificates && \
+
+CMD ["php", "-S", "0.0.0.0:8080", "-t", "/scripts/www/public/"]
