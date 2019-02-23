@@ -69,6 +69,7 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/
 
 ADD scripts /scripts
+ADD www /www
 
 # composer
 # RUN apt-get update && \
@@ -83,4 +84,4 @@ ADD scripts /scripts
 #     cd / && \
 #     apt-get purge -y curl ca-certificates && \
 
-CMD ["php", "-S", "0.0.0.0:8080", "-t", "/scripts/www/public/"]
+CMD ["php", "-S", "0.0.0.0:8080", "-t", "/www/public/"]

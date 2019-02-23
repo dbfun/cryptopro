@@ -1,9 +1,13 @@
 #!/bin/bash
 
+#
+# Установка корневых сертификатов
+#
+
 cd "$(dirname "$0")"
 
 file=`mktemp`
 cat - > "$file"
 
-./root.exp "$file"
+./lib/root.exp "$file"
 rm -f "$file"

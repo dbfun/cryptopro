@@ -18,7 +18,7 @@ var_export($r->getParameters());
 
 ### Через Reflection API
 
-С помощью `scripts/php-cli/tools/reflection.php` получен такой список классов и методов:
+С помощью `devel/reflection.php` получен такой список классов и методов:
 
 ```
 CPStore
@@ -230,4 +230,4 @@ CPSignedXML
 
 ### Через исходные коды
 
-В скачаном с официального сайта архиве `cades_linux_amd64.tar.gz` есть RPM пакет `cprocsp-pki-2.0.0-amd64-phpcades.rpm`, в котором находятся исходные тексты расширения, в том числе `test_extension.php` (скопирован в `scripts/php-cli/samples/test_extension.php`).
+В скачаном с официального сайта архиве `cades_linux_amd64.tar.gz` есть RPM пакет `cprocsp-pki-2.0.0-amd64-phpcades.rpm`, в котором находятся исходные тексты расширения, в том числе `test_extension.php` (скопирован в `devel/test_extension.php`).

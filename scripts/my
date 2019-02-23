@@ -1,5 +1,9 @@
 #!/bin/bash
 
+#
+# Установка сертификатов пользователя для проверки и подписания
+#
+
 cd "$(dirname "$0")"
 source lib/colors.sh
 source lib/functions.sh

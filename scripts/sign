@@ -1,5 +1,9 @@
 #!/bin/bash
 
+#
+# Подписание документа
+#
+
 tmp=`mktemp`
 cat - > "$tmp"
 cryptcp -sign -thumbprint "$1" -nochain -pin "$2" "$tmp" "$tmp.sig" > /dev/null 2>&1
