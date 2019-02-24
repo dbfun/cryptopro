@@ -26,20 +26,20 @@ function testprivk {
   [ ! -f "$contShortName/primary2.key" ] && error "File primary2.key not found in $contShortName" && exit 1
 }
 
-# для связки закрытого ключа с сертификатом необходимо указать полное наименование контейнера, но откуда его взять?
-# будем играть в "угадай мелодию"
-# PS name.key - также содержит имя контейнера
-function findContFullName {
-	contFullName=`csptest -keyset -enum_cont -verifycontext -unique | grep --fixed-strings "$contShortName" | cut -d '|' -f1`
-	if [ ! -n "$contFullName" ]; then
-		error "Proper container not found by short name: $contShortName"
-		exit 1
-	fi
-}
+# для связки закрытого ключа с сертификатом необходимо указать полное наименование контейнера, которое находится в name.key
+# таким способо также можно выяснить название, но с cp1251 работает не устойчиво
+# function findContFullName {
+# 	contFullName=`csptest -keyset -enum_cont -verifycontext -unique | grep --fixed-strings "$contShortName" | cut -d '|' -f1`
+# 	if [ ! -n "$contFullName" ]; then
+# 		error "Proper container not found by short name: $contShortName"
+# 		exit 1
+# 	fi
+# }
 
 # xargs удаляет `./` из названия файла
 certFileName=`find -maxdepth 1 -type f \! -name . | head -n1 | xargs -I{} basename {}`
 contShortName=`find -maxdepth 1 -type d \! -name . | head -n1 | xargs -I{} basename {}`
+contFullName=`tail -c+5 "$contShortName/name.key"`
 
 # Есть контейнер, устанавливаем
 if [ -n "$contShortName" ]; then
@@ -67,8 +67,7 @@ if [ -n "$certFileName" ]; then
 
 		# устанавливается сертификат + контейнер, нужно их связать ('PrivateKey Link')
 
-		findContFullName
-		info "Key container full name: $contFullName"
+		info "Key container full name: $contFullName" | iconv -fcp1251 -tutf-8
 
 		if [ -z "$1" ]; then
 			# нет PIN
