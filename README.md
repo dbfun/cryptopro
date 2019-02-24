@@ -260,6 +260,8 @@ cat README.md | ssh -q $(whoami)@localhost 'docker exec -i cryptopro /scripts/si
 * `/verify` - проверка подписанного документа (`POST`)
 * `/unsign` - получение исходного файла без подписей (`POST`)
 
+![rest](https://raw.githubusercontent.com/dbfun/cryptopro/master/assets/rest.gif)
+
 ## Формат данных
 
 Для `POST` данные должны поступать в теле запроса в формате `x-www-form-urlencoded`.
