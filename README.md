@@ -1,12 +1,17 @@
 # КриптоПро 4.0 в докер контейнере
 
-Возможности:
+Содержимое контейнера:
 
 * PHP7 с установленным расширением `libphpcades` (`CPStore`, `CPSigner`, `CPSignedData`)
-* использование входящих в КриптоПро инструментов: `certmgr`, `cpverify`, `cryptcp`, `csptest`, `csptestf`, `der2xer`, `inittst`, `wipefile`, `cpconfig`
-* удобная установка сертификатов:
-  * корневых
-  * пользователя
+* инструменты КриптоПро: `certmgr`, `cpverify`, `cryptcp`, `csptest`, `csptestf`, `der2xer`, `inittst`, `wipefile`, `cpconfig`
+* вспомогательные скрипты командой строки
+* HTTP REST-сервер
+
+Есть 3 варианта использования контейнера:
+
+* [через интерфейс командной строки](#cli) (и ssh-клиент для удаленных машин)
+* [через HTTP REST-сервер](#http)
+* добавить свои обработчики внутрь контейнера
 
 # Структура проекта
 
@@ -17,8 +22,8 @@
 ├── dist          - пакеты КриптоПро (необходимо скачать с официального сайта)
 ├── Dockerfile    - файл сборки образа
 ├── README.md     - этот файл
-└── scripts       - скрипты для работы с контейнером из командной строки
-└── www           - REST сервер
+└── scripts       - вспомогательные скрипты командой строки
+└── www           - HTTP REST-сервер
 ````
 
 # Создание образа из исходного кода
@@ -39,15 +44,15 @@ docker build --tag required/cryptopro .
 
 В `Dockerfile` содержатся названия пакетов, например `lsb-cprocsp-devel-4.0.9921-5.noarch.rpm`, которые могут заменить новой версией. Следует поправить названия пакетов в `Dockerfile`.
 
-# Работа с контейнером
-
-## Запуск
+# Запуск контейнера
 
 Запустим контейнер под именем `cryptopro`, к которому будем обращаться в примерах:
 
 ```
 docker run -it --rm -p 8095:80 --name cryptopro required/cryptopro
 ```
+
+# Работа с контейнером через интерфейс командной строки<a name="cli"></a>
 
 ## Лицензия
 
@@ -116,9 +121,10 @@ curl -sS http://testca2012.cryptopro.ru/cert/subca.cer | docker exec -i cryptopr
 
 ```
 ├── bundle-cert-only.zip          - только сертификат
-├── bundle-custom-name.zip        - сертификат + закрытый ключ, название контейнера закрытого ключа содержит кириллицу
+├── bundle-cosign.zip             - сертификат + закрытый ключ БЕЗ пин-кода (для добавления второй подписи)
+├── bundle-cyrillic.zip           - сертификат + закрытый ключ, название контейнера "тестовое название контейнера" (кириллица)
 ├── bundle-no-pin.zip             - сертификат + закрытый ключ БЕЗ пин-кода
-├── bundle-pin.zip                - сертификат + закрытый ключ с пин-кодом
+├── bundle-pin.zip                - сертификат + закрытый ключ с пин-кодом 12345678
 └── bundle-private-key-only.zip   - только закрытый ключ
 ```
 
@@ -137,8 +143,8 @@ cat certificates/bundle-cert-only.zip | docker exec -i cryptopro /scripts/my
 # только закрытый ключ
 cat certificates/bundle-private-key-only.zip | docker exec -i cryptopro /scripts/my
 
-# сертификат + закрытый ключ, название контейнера закрытого ключа содержит кириллицу
-cat certificates/bundle-custom-name.zip | docker exec -i cryptopro /scripts/my
+# сертификат + закрытый ключ, название контейнера "тестовое название контейнера" (кириллица)
+cat certificates/bundle-cyrillic.zip | docker exec -i cryptopro /scripts/my
 ```
 
 ![my-cert](https://raw.githubusercontent.com/dbfun/cryptopro/master/assets/my-cert.gif)
@@ -242,6 +248,165 @@ ssh-copy-id $(whoami)@localhost
 # пробуем подписать
 cat README.md | ssh -q $(whoami)@localhost 'docker exec -i cryptopro /scripts/sign dd45247ab9db600dca42cc36c1141262fa60e3fe 12345678'
 ```
+
+# Работа с контейнером через HTTP REST-сервер<a name="http"></a>
+
+Установка сертификатов осуществляется через командую строку. Все остальные действия доступны по HTTP.
+
+* `/healthcheck` - проверка работоспособности (`GET`)
+* `/certificates` - все установленные сертификаты пользователя (`GET`)
+* `/sign` - подписание документов (`POST`)
+* `/cosign` - добавление еще одной подписи к документу (`POST`)
+* `/verify` - проверка подписанного документа (`POST`)
+* `/unsign` - получение исходного файла без подписей (`POST`)
+
+## Формат данных
+
+Для `POST` данные должны поступать в теле запроса в формате `x-www-form-urlencoded`.
+
+Возвращаются данные в формате `JSON`.
+
+## Обработка ошибок
+
+Успешные действия возвращают код `200` и `"status": "ok"`.
+
+Действия с ошибками возвращают `4xx` и `5xx` коды и `"status": "fail"`, в полях `errMsg` содержится описание ошибки, в `errCode` - ее код.
+
+Например, обращение с неправильным методом
+
+```sh
+curl -sS -X POST --data-binary "bindata" http://localhost:8095/healthchecks
+```
+
+выведет такую ошибку:
+
+```JSON
+{"status":"fail","errMsg":"Method must be one of: GET","errCode":405}
+```
+
+## `/healthcheck` - проверка работоспособности
+
+Используется, чтобы убедиться в работоспособности сервиса. Например, так: `docker ps -f name=cryptopro` или `curl http://localhost:8095/healthcheck`.
+
+## `/certificates` - все установленные сертификаты пользователя
+
+```
+curl -sS http://localhost:8095/certificates
+```
+
+Если сертификатов нет:
+
+```JSON
+{"status":"fail","errMsg":"No certificates in store 'My'","errCode":404}
+```
+
+Если сертификаты есть:
+
+```JSON
+{
+  "certificates": [
+    {
+      "privateKey": {
+        "providerName": "Crypto-Pro GOST R 34.10-2012 KC1 CSP",
+        "uniqueContainerName": "HDIMAGE\\\\eb5f6857.000\\D160",
+        "containerName": "eb5f6857-a08a-4510-8a96-df2f75b6d65a"
+      },
+      "algorithm": {
+        "name": "ГОСТ Р 34.10-2012",
+        "val": "1.2.643.7.1.1.1.1"
+      },
+      "valid": {
+        "to": "24.05.2019 08:13:16",
+        "from": "24.02.2019 08:03:16"
+      },
+      "issuer": {
+        "E": "support@cryptopro.ru",
+        "C": "RU",
+        "L": "Moscow",
+        "O": "CRYPTO-PRO LLC",
+        "CN": "CRYPTO-PRO Test Center 2",
+        "raw": "CN=CRYPTO-PRO Test Center 2, O=CRYPTO-PRO LLC, L=Moscow, C=RU, E=support@cryptopro.ru"
+      },
+      "subject": {
+        "C": "RU",
+        "L": "Test",
+        "O": "Test",
+        "OU": "Test",
+        "CN": "Test",
+        "E": "test@test.ru",
+        "raw": "E=test@test.ru, CN=Test, OU=Test, O=Test, L=Test, S=Test, C=RU"
+      },
+      "thumbprint": "982AA9E713A2F99B10DAA07DCDC94A4BC32A1027",
+      "serialNumber": "120032C3567443029CC358FCDF00000032C356",
+      "hasPrivateKey": true
+    }
+  ],
+  "status": "ok"
+}
+```
+
+## `/sign` - подписание документов
+
+Для выбора сертификата для подписания нужно указать один критерии поиска `find_type`:
+
+* `sha1` - по SHA1 сертификата
+* `subject` - по `subject` подписанта
+
+В `query` - параметры поиска, в `pin` - пин-код (если он установлен):
+
+```sh
+CERT_QUERY="find_type=sha1&query=82028260efc03eedc88dcb61c0f6a02e788e26e2&pin=12345678"
+curl -sS -X POST --data-binary @- "http://localhost:8095/sign?$CERT_QUERY" < README.md
+```
+
+Вернется `JSON` - документ, в `signedContent` будет содержаться подписанный файл.
+
+## `/cosign` - добавление еще одной подписи к документу
+
+Не реализовано, столкнулся с проблемой: не получается заставить работать функцию `CPSignedData::CoSignCades()`.
+
+## `/verify` - проверка подписанного документа
+
+Подпишем файл и проверим его:
+
+```sh
+# подпишем файл
+CERT_QUERY="find_type=sha1&query=82028260efc03eedc88dcb61c0f6a02e788e26e2&pin=12345678"
+curl -sS -X POST --data-binary @- "http://localhost:8095/sign?$CERT_QUERY" < README.md > /tmp/file.json
+# извлечем подписанный файл из "signedContent"
+jq ".signedContent" --raw-output /tmp/file.json > /tmp/file.sig
+# проверим подписанный файл
+curl -sS -X POST --data-binary @- "http://localhost:8095/verify" < /tmp/file.sig
+```
+
+Если файл прошел проверку, вернется список подписантов `signers`.
+
+
+## `/unsign` - получение исходного файла без подписей
+
+Исходный файл вернется в поле `content`.
+
+```sh
+# получим из подписанного файла /tmp/file.sig оригинальный файл, он будет в "content" файла /tmp/unsig.json
+curl -sS -X POST --data-binary @- "http://localhost:8095/unsign" < /tmp/file.sig > /tmp/unsig.json
+# выведем на экран первые несколько строк
+jq ".content" --raw-output /tmp/unsig.json | base64 -d | head
+```
+
+
+## Проблемы
+
+Если pin-код не подходит, то в терминал выводится:
+
+```
+Wrong pin, 2 tries left.
+
+CryptoPro CSP: Type password for container "eb5f6857-a08a-4510-8a96-df2f75b6d65a"
+Password:
+```
+
+И подписание останавливается.
+
 
 # Ссылки
 

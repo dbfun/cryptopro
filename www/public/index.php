@@ -11,20 +11,58 @@ if (PHP_SAPI == 'cli-server') {
 
 require __DIR__ . '/../vendor/autoload.php';
 
-session_start();
-
 // Instantiate the app
-$settings = require __DIR__ . '/../src/settings.php';
+$settings = require __DIR__ . '/settings.php';
 $app = new \Slim\App($settings);
 
 // Set up dependencies
-require __DIR__ . '/../src/dependencies.php';
-
-// Register middleware
-require __DIR__ . '/../src/middleware.php';
+require __DIR__ . '/dependencies.php';
 
 // Register routes
-require __DIR__ . '/../src/routes.php';
+require __DIR__ . '/routes.php';
+
+$c = $app->getContainer();
+$c['errorHandler'] = function ($c) {
+  return function ($request, $response, $exception) use ($c) {
+    $errCode = $exception->getCode();
+    $errMsg = $exception->getMessage();
+
+    $httpCode = 500;
+
+    if(is_a($exception, '\\App\\Exception'))
+    {
+      $httpCode = $errCode >= 400 && $errCode < 600 ? $errCode : 500;
+    }
+    else
+    {
+      // Ошибка КриптоПро?
+      $errMsg = \App\Exception::cryptoproError($errCode, $errMsg);
+    }
+
+
+    return $response->
+      withStatus($httpCode)->
+      withJson(['status' => 'fail', 'errMsg' => $errMsg, 'errCode' => $errCode]);
+  };
+};
+
+$c['notFoundHandler'] = function ($c) {
+    return function ($request, $response) use ($c) {
+      return $response->
+        withStatus(404)->
+        withJson(['status' => 'fail', 'errMsg' => 'Page not found', 'errCode' => 404]);
+    };
+};
+
+$c['notAllowedHandler'] = function ($c) {
+    return function ($request, $response, $methods) use ($c) {
+      return $response->
+        withStatus(405)->
+        withHeader('Allow', implode(', ', $methods))->
+        withHeader('Content-type', 'text/html')->
+        withJson(['status' => 'fail', 'errMsg' => 'Method must be one of: ' . implode(', ', $methods), 'errCode' => 405]);
+    };
+};
 
 // Run app
 $app->run();

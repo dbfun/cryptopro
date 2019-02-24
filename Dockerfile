@@ -34,7 +34,7 @@ FROM cryptopro-generic
 ADD dist /tmp/src
 
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends expect alien php7.0-cli php7.0-dev libboost-dev unzip g++ && \
+    apt-get install -y --no-install-recommends expect alien php7.0-cli php7.0-dev libboost-dev unzip g++ curl && \
     cd /tmp/src && \
     tar -xf cades_linux_amd64.tar.gz && \
     alien -kci lsb-cprocsp-devel-4.0.9921-5.noarch.rpm && \
@@ -83,5 +83,7 @@ ADD www /www
 #     # прибираемся
 #     cd / && \
 #     apt-get purge -y curl ca-certificates && \
+
+HEALTHCHECK --interval=60s --timeout=5s CMD ["curl", "-m5", "-f", "http://localhost:8080/healthcheck"]
 
 CMD ["php", "-S", "0.0.0.0:8080", "-t", "/www/public/"]
