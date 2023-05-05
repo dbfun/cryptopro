@@ -4,6 +4,8 @@ FROM debian:stretch-slim as cryptopro-generic
 # Устанавливаем timezone
 ENV TZ="Europe/Moscow" \
     docker="1"
+# Debian 9 Stretch ушла в архив, без этой строки пакеты не выкачать
+RUN echo "deb http://archive.debian.org/debian stretch main" > /etc/apt/sources.list
 
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && \
     echo $TZ > /etc/timezone
@@ -34,7 +36,7 @@ FROM cryptopro-generic
 ADD dist /tmp/src
 
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends expect alien php7.0-cli php7.0-dev libboost-dev unzip g++ curl && \
+    apt-get install -y --no-install-recommends lsb-core libccid pcscd libmotif-common expect alien php7.0-cli php7.0-dev libboost-dev unzip g++ curl && \	
     cd /tmp/src && \
     tar -xf cades_linux_amd64.tar.gz && \
     alien -kci lsb-cprocsp-devel-4.0.9921-5.noarch.rpm && \
