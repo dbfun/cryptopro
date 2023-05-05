@@ -5,6 +5,8 @@ FROM debian:stretch-slim as cryptopro-generic
 ENV TZ="Europe/Moscow" \
     docker="1"
 
+RUN echo "deb http://archive.debian.org/debian stretch main" > /etc/apt/sources.list
+
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && \
     echo $TZ > /etc/timezone
 
@@ -25,18 +27,19 @@ RUN cd /tmp/src && \
     ln -s /opt/cprocsp/bin/amd64/der2xer && \
     ln -s /opt/cprocsp/bin/amd64/inittst && \
     ln -s /opt/cprocsp/bin/amd64/wipefile && \
-    ln -s /opt/cprocsp/sbin/amd64/cpconfig && \
+    ln -s /opt/cprocsp/sbin/amd64/cpconfig && \	
     # прибираемся
-    rm -rf /tmp/src
+    rm -rf /tmp/src	
 
 # Образ с PHP cli и скриптами
 FROM cryptopro-generic
 ADD dist /tmp/src
 
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends expect alien php7.0-cli php7.0-dev libboost-dev unzip g++ curl && \
-    cd /tmp/src && \
-    tar -xf cades_linux_amd64.tar.gz && \
+# added lsb-core libccid pcscd libmotif-common to get working in 2023
+    apt-get install -y --no-install-recommends lsb-core libccid pcscd libmotif-common expect alien php7.0-cli php7.0-dev libboost-dev unzip g++ curl && \	
+    cd /tmp/src && \	
+    tar -xf cades-linux-amd64.tar.gz && \
     alien -kci lsb-cprocsp-devel-4.0.9921-5.noarch.rpm && \
     alien -kci cprocsp-pki-2.0.0-amd64-phpcades.rpm && \
     alien -kci cprocsp-pki-2.0.0-amd64-cades.rpm && \
